@@ -1,18 +1,19 @@
-# 사이드 프로젝트 미니 코딩 에이전트 (장애 분석·코드 리뷰·보안 점검)
+# DevFlow: AI Development Agents
 
 - 크루원: 조효주
-- 대상 프로젝트:
-  - [3주차 — error-analysis-agent](https://github.com/JoHyoju04/error-analysis-agent)
-  - [4·5주차 — pr-review-agent](https://github.com/JoHyoju04/pr-review-agent)
-- 마지막 갱신: 2026-11-20
+- 결과물:
+  - **PR 리뷰 에이전트**: [pr-review-agent](https://github.com/JoHyoju04/pr-review-agent)
+  - **장애 분석 에이전트**: [error-analysis-agent](https://github.com/JoHyoju04/error-analysis-agent)
+- 주요 기술: Python, Docker Compose, Slack Bolt, Sentry API, GitHub CLI, SQLite
+- 마지막 갱신: 2026-11-27
 
 ## 한 줄 소개
 
-장애가 난 시점의 코드를 읽기 전용으로 분석하고, PR 변경 사항은 여러 관점에서 탐지·검증해 코드 리뷰와 선택적 보안 리뷰로 돌려주는 미니 코딩 에이전트
+**개발 워크플로 자동화를 위한 AI 에이전트 구축** — 장애 당시의 소스를 분석해 Slack에 전달하고, PR 변경 사항을 다각도로 검증해 GitHub 리뷰로 게시하는 DevFlow의 두 에이전트
 
 ## 문제 정의
 
-**장애 분석과 코드 리뷰는 실제 코드·변경 시점에 근거해야 하며, 그 과정에서 오탐과 민감정보 노출을 줄여야 한다.**
+**운영 장애 대응과 GitHub 기반 협업에서 반복되는 정보 수집·원인 분석·코드 리뷰 작업을 자동화하되, 실제 코드와 변경 시점에 근거하고 오탐과 민감정보 노출을 줄여야 한다.**
 
 - 장애 분석에서 최신 코드를 보면 장애 당시와 다른 코드로 원인을 추정할 수 있다. Sentry 이벤트에는 고객 정보·토큰 등 민감정보가 섞일 수 있고, 대응 에이전트에 쓰기 권한을 주면 2차 사고 위험도 생긴다.
 - 코드 리뷰는 같은 결함이 여러 관점에서 중복 보고되거나, 근거가 약한 지적이 게시되면 신뢰를 잃는다. 같은 PR을 다시 리뷰할 때 모델·작업 트리·실행 상태에 따라 결과가 달라지는 문제도 있다.
@@ -38,7 +39,7 @@
 | 3주차 | 장애 분석 | Sentry 알림 Slack 스레드에서 `!AI분석` 명령을 받아, 장애 당시 revision 스냅샷을 읽기 전용으로 분석하고 같은 스레드에 결과를 게시하는 에이전트 |
 | 4주차 | 범용 코드 리뷰 | 로직·동시성·API 계약 관점의 병렬 탐지, 반증 중심 검증자 투표, 3단 병합과 라운드 수렴을 갖춘 PR 리뷰 에이전트 |
 | 5주차 | 보안 리뷰 | 범용 리뷰에 선택적으로 추가하는 authz·injection·data exposure 관점과 별도 검증 기준을 갖춘 보안 리뷰 |
-| 6주차 | 문서 정리와 전체 흐름 통합 | 문서 갱신 절차, 통합 실행 가이드, 품질 평가, 데모 시나리오 |
+| 6주차 | PR 생성·전체 흐름 통합 | Skill 기반 변경 사항 확인과 Draft PR 생성 자동화, 문서 갱신·통합 실행 가이드·품질 평가 |
 
 ### 3주차: 장애 당시 revision을 읽는 읽기 전용 분석
 
@@ -67,10 +68,15 @@ PR head 커밋의 임시 worktree를 기준으로 로직, 동시성·자원, API
 | 통과 기준 | 기본 2/3 투표 | 기본 3/3 만장일치 |
 | 게시 방식 | 정렬 순서대로 상한 적용 | 보안 finding용 슬롯을 먼저 예약 |
 
+### 6주차: Skill 기반 PR 생성과 개발 워크플로 통합
+
+변경 사항과 저장소 지침을 확인하는 Skill을 바탕으로 Draft PR 생성을 자동화한다. 장애 분석과 PR 리뷰가 개발 과정의 분석·검증을 담당한다면, PR 생성은 검증된 변경 사항을 협업 흐름으로 연결하는 보조 기능이다.
+
 ## OpenAI 기술 활용
 
-- Codex: 3주차 에이전트는 `openai-codex==0.163.0` SDK를 ChatGPT OAuth로 인증해, 읽기 전용·승인 거부 설정에서 장애 시점 스냅샷을 분석한다. 4·5주차 에이전트는 `codex` CLI를 서브프로세스로 호출해 PR을 탐지·검증하며, 기본 설정은 `gpt-5.6-terra`, 추론 강도 `medium`이다.
+- Codex: 장애 분석 에이전트는 `openai-codex==0.163.0` SDK를 ChatGPT OAuth로 인증해, 읽기 전용·승인 거부 설정에서 장애 시점 스냅샷을 분석한다. PR 리뷰 에이전트는 `codex` CLI를 서브프로세스로 호출해 PR을 탐지·검증하며, 기본 설정은 `gpt-5.6-terra`, 추론 강도 `medium`이다.
 - OpenAI API: API 키를 코드나 로그에 두지 않는다. 장애 분석은 ChatGPT OAuth를 사용하고, PR 리뷰의 인증·모델 선택·샌드박스는 Codex CLI에 맡긴다.
+- 작업 지침: `AGENTS.md`와 Skills로 프로젝트별 실행 규칙, 변경 사항 확인 절차, 검증·PR 생성 흐름을 표준화한다.
 
 ## 구현 현황
 
@@ -81,7 +87,8 @@ PR head 커밋의 임시 worktree를 기준으로 로직, 동시성·자원, API
 | 범용 코드 리뷰 파이프라인 | 완료 | 병렬 탐지, 반증 중심 검증, 3단 병합, 라운드 수렴 |
 | 보안 관점 (authz, injection, data exposure) | 완료 | 선택적 실행, 전용 검증 기준, 보안 슬롯 예약 |
 | 피드백 로그와 재현성 제어 | 완료 | SQLite 상태 저장, PR head worktree, 응답 캐시 |
-| 문서 정리·전체 흐름 통합 | 진행 중 | 6주차 기록을 바탕으로 정리 중 |
+| Skill 기반 Draft PR 생성 | 완료 | 변경 사항과 저장소 지침을 확인한 뒤 Draft PR 생성 자동화 |
+| 문서 정리·전체 흐름 통합 | 완료 | 실행 가이드·품질 평가·프로젝트 문서 정리 완료 |
 
 ## 평가·검증 결과
 
@@ -109,17 +116,40 @@ PR head 커밋의 임시 worktree를 기준으로 로직, 동시성·자원, API
 
 - 장애 분석은 최신 코드가 아니라 장애 당시 revision을 검증해 읽고, 확인할 수 없으면 추측 대신 중단한다.
 - 리뷰는 탐지·검증·병합·게시 판단을 분리해, LLM이 아닌 코드로 중복 제거·투표 집계·정렬·상한을 통제한다.
+- AI가 장애 원인과 결함을 판단할 영역과, 코드가 분석 범위·결과 검증·게시를 통제할 영역을 분리해 신뢰성과 재현성을 높인다.
 - 다음 단계로는 실제 피드백 로그를 활용한 오탐률 측정과 평가 세트 구축, gitleaks·Semgrep 같은 결정적 보안 도구의 finding 어댑터 추가를 검토한다.
 
 ## 결과물·실행 방법
 
-- 3주차 저장소: [error-analysis-agent](https://github.com/JoHyoju04/error-analysis-agent)
+- 장애 분석 에이전트: [error-analysis-agent](https://github.com/JoHyoju04/error-analysis-agent)
   - `./scripts/prepare-repo.sh`로 분석 대상 저장소 mirror와 매핑을 준비한 뒤, Docker Compose로 빌드·로그인·점검·실행한다.
   - 설정 점검: `docker compose run --rm selfcheck`
-- 4·5주차 저장소: [pr-review-agent](https://github.com/JoHyoju04/pr-review-agent)
+- PR 리뷰 에이전트: [pr-review-agent](https://github.com/JoHyoju04/pr-review-agent)
   - PR 리뷰 실행: `review run --repo ~/work/my-service --pr 153 --dry-run`
   - 실제 GitHub 게시가 필요할 때만 `--post` 옵션을 사용한다.
 - 시연영상: 미제공
+- 권장 환경: Python 3.10 이상, Git, GitHub CLI, Docker Compose, Slack·Sentry API 인증 환경
+- 유의사항: 각 저장소의 환경변수와 인증 설정이 필요하며, AI 분석·리뷰 결과는 개발자의 최종 검토 후 활용한다.
+
+## 시연 화면
+
+사이드 프로젝트에서 장애 분석 에이전트가 Sentry 알림을 받고 Slack 스레드에서 분석 요청과 결과를 전달하는 흐름을 시연했다. 사용자·프로젝트·저장소·커밋·작업 ID·내부 경로·외부 엔드포인트는 마스킹했다.
+
+### Sentry 장애 알림
+
+[마스킹된 Sentry 장애 알림 보기](assets/error-analysis-sentry-alert-masked.png)
+
+### Slack 분석 요청과 결과
+
+[마스킹된 Slack 장애 분석 결과 요약 보기](assets/error-analysis-slack-summary-masked.png)
+
+[마스킹된 Slack 장애 분석 상세 보기](assets/error-analysis-slack-details-masked.png)
+
+### PR 리뷰 에이전트
+
+사이드 프로젝트의 실제 PR을 대상으로, 검증을 통과한 finding을 GitHub 인라인 코멘트로 게시하는 흐름을 시연했다. 사용자·저장소 경로·코드 원문·내부 저장 경로는 마스킹했다.
+
+[마스킹된 PR 리뷰 시연 보기](assets/pr-review-first-pass-masked.png)
 
 ## 주차별 수행 내역
 
